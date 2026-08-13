@@ -1,0 +1,117 @@
+name: MOViE MOViE Odyssey Watch
+
+on:
+  schedule:
+    - cron: '3/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只检查，不发送提醒'
+        required: false
+        default: true
+        type: boolean
+      clear_source_halt:
+        description: '人工清除来源停止状态'
+        required: false
+        default: false
+        type: boolean
+      send_test_notification:
+        description: '只发送一条【电影监控测试】消息'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: movie-movie-odyssey-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Syntax check
+        run: python -m py_compile movie_watch.py tests/test_movie_watch.py
+
+      - name: Offline tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Validate manual inputs
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          CLEAR_HALT: ${{ inputs.clear_source_halt }}
+          TEST_MESSAGE: ${{ inputs.send_test_notification }}
+        run: |
+          if [[ "$CLEAR_HALT" == "true" && "$DRY_RUN" == "true" ]]; then
+            echo "clear_source_halt=true requires dry_run=false"
+            exit 1
+          fi
+          if [[ "$TEST_MESSAGE" == "true" && ( "$DRY_RUN" == "true" || "$CLEAR_HALT" == "true" ) ]]; then
+            echo "send_test_notification=true requires dry_run=false and clear_source_halt=false"
+            exit 1
+          fi
+
+      - name: Run movie watch
+        id: monitor
+        env:
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_RECEIVE_ID: ${{ secrets.FEISHU_RECEIVE_ID }}
+          IS_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+          CLEAR_HALT: ${{ inputs.clear_source_halt || false }}
+          TEST_MESSAGE: ${{ inputs.send_test_notification || false }}
+        run: |
+          args=()
+          if [[ "$IS_MANUAL" == "true" && "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
+          if [[ "$IS_MANUAL" == "true" && "$CLEAR_HALT" == "true" ]]; then args+=(--clear-source-halt); fi
+          if [[ "$IS_MANUAL" == "true" && "$TEST_MESSAGE" == "true" ]]; then args+=(--test-notification); fi
+          set +e
+          python movie_watch.py "${args[@]}"
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Commit material state change
+        if: always() && steps.monitor.outcome == 'success'
+        run: |
+          if git diff --quiet -- state/movie_watch_state.json; then
+            echo "No material state change; no commit."
+            exit 0
+          fi
+          cp state/movie_watch_state.json /tmp/movie_watch_state.json
+          git checkout -- state/movie_watch_state.json
+          git pull --rebase
+          cp /tmp/movie_watch_state.json state/movie_watch_state.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/movie_watch_state.json
+          if git diff --cached --quiet; then
+            echo "No material state change after rebase; no commit."
+            exit 0
+          fi
+          git commit -m "[skip ci] update movie watch state"
+          git push
+
+      - name: Propagate monitor failure
+        if: always() && steps.monitor.outcome == 'success'
+        env:
+          EXIT_CODE: ${{ steps.monitor.outputs.exit_code }}
+        run: exit "${EXIT_CODE:-1}"

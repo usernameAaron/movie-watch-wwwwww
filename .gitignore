@@ -1,0 +1,24 @@
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Python/local tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local outputs must never be committed
+logs/
+*.log
+*.jsonl
+coverage.xml
+.coverage
+
+# Editor/OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

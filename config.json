@@ -1,0 +1,8 @@
+{
+  "api_url": "https://m.maoyan.com/ajax/cinemaDetail",
+  "cinema_id": "37534",
+  "cinema_name_must_contain": "MOViE MOViE",
+  "movie_name": "奥德赛",
+  "movie_aliases": [],
+  "timeout_seconds": 15
+}
