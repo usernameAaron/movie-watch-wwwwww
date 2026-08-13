@@ -151,13 +151,22 @@ class MovieWatchTests(unittest.TestCase):
 
     def test_09_http_418_persistently_halts_source(self) -> None:
         response = Mock(status_code=418, text="blocked")
+        recorder = Recorder()
         with patch("movie_watch.requests.get", return_value=response) as get:
-            code = watch.run_monitor(self.config, self.state, current=NOW, notifier=Recorder())
+            code = watch.run_monitor(
+                self.config, self.state, current=NOW, notifier=recorder,
+                defer_halt_notification=True,
+            )
         self.assertEqual(code, 2)
         self.assertEqual(get.call_count, 1)
         state = watch.load_state(self.state)
         self.assertTrue(state["source_halted"])
         self.assertIn("418", state["source_halt_reason"])
+        self.assertFalse(state["halt_notification_attempted"])
+        self.assertEqual(recorder.messages, [])
+        self.assertEqual(watch.notify_persisted_halt(self.state, current=NOW, notifier=recorder), 0)
+        self.assertEqual(len(recorder.messages), 1)
+        self.assertTrue(watch.load_state(self.state)["halt_notification_attempted"])
 
     def test_10_halted_state_never_calls_fetcher(self) -> None:
         state = watch.load_state(self.state)
@@ -210,6 +219,7 @@ class MovieWatchTests(unittest.TestCase):
         self.assertIn("group: movie-movie-odyssey-watch", text)
         self.assertIn("cancel-in-progress: false", text)
         self.assertIn("cron: '3/5 * * * *'", text)
+        self.assertLess(text.index("Commit material state change"), text.index("Notify a persisted source halt"))
 
 
 if __name__ == "__main__":

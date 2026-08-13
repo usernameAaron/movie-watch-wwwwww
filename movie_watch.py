@@ -422,6 +422,7 @@ def run_monitor(
     current: datetime | None = None,
     fetcher: Callable[[dict[str, Any], datetime], FetchResult] = fetch_source,
     notifier: Callable[..., None] = send_feishu,
+    defer_halt_notification: bool = False,
 ) -> int:
     config = load_json(config_path)
     before = load_state(state_path)
@@ -468,8 +469,9 @@ def run_monitor(
         state["source_halt_reason"] = reason
         state["source_halted_at"] = current.isoformat(timespec="seconds")
         atomic_save_json(state_path, state)
-        _mark_halted(state, reason, current, notifier)
-        atomic_save_json(state_path, state)
+        if not defer_halt_notification:
+            _mark_halted(state, reason, current, notifier)
+            atomic_save_json(state_path, state)
         print(f"检测到必须停源的条件：{reason}；已持久化停止且不会自动重试。")
         return 2
     except TransientSourceError as exc:
@@ -505,6 +507,31 @@ def send_test_notification(notifier: Callable[..., None] = send_feishu) -> int:
     return 0
 
 
+def notify_persisted_halt(
+    state_path: Path,
+    *,
+    current: datetime | None = None,
+    notifier: Callable[..., None] = send_feishu,
+) -> int:
+    """Notify an already-persisted halt without ever touching the source."""
+    before = load_state(state_path)
+    if not before.get("source_halted"):
+        print("没有待通知的来源停止状态；未访问数据源。")
+        return 0
+    if before.get("halt_notification_attempted"):
+        print("来源停止提醒已经尝试过；未重复发送，也未访问数据源。")
+        return 0
+    state = copy.deepcopy(before)
+    _mark_halted(
+        state,
+        str(state.get("source_halt_reason") or "原因未记录"),
+        (current or now_shanghai()).astimezone(TZ),
+        notifier,
+    )
+    _save_if_changed(state_path, before, state, False)
+    return 0 if state.get("halt_notification_result") == "success" else 1
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="MOViE MOViE《奥德赛》GitHub Actions 排片监控")
     base = Path(__file__).resolve().parent
@@ -513,11 +540,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="查询并显示，但不发飞书、不改正式状态")
     parser.add_argument("--clear-source-halt", action="store_true", help="人工清除持久化停源状态；本次不访问数据源")
     parser.add_argument("--test-notification", action="store_true", help="仅发送一条带测试标识的飞书消息")
+    parser.add_argument("--defer-halt-notification", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--notify-persisted-halt", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.notify_persisted_halt:
+        return notify_persisted_halt(args.state.resolve())
     if args.test_notification:
         if args.dry_run or args.clear_source_halt:
             print("错误：测试消息不能与 dry-run 或 clear-source-halt 同时使用。")
@@ -526,6 +557,7 @@ def main() -> int:
     return run_monitor(
         args.config.resolve(), args.state.resolve(),
         dry_run=args.dry_run, clear_source_halt=args.clear_source_halt,
+        defer_halt_notification=args.defer_halt_notification,
     )
 
 

@@ -83,6 +83,7 @@ jobs:
           if [[ "$IS_MANUAL" == "true" && "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
           if [[ "$IS_MANUAL" == "true" && "$CLEAR_HALT" == "true" ]]; then args+=(--clear-source-halt); fi
           if [[ "$IS_MANUAL" == "true" && "$TEST_MESSAGE" == "true" ]]; then args+=(--test-notification); fi
+          if [[ "$DRY_RUN" != "true" && "$TEST_MESSAGE" != "true" ]]; then args+=(--defer-halt-notification); fi
           set +e
           python movie_watch.py "${args[@]}"
           code=$?
@@ -90,6 +91,7 @@ jobs:
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
 
       - name: Commit material state change
+        id: state_commit
         if: always() && steps.monitor.outcome == 'success'
         run: |
           if git diff --quiet -- state/movie_watch_state.json; then
@@ -109,6 +111,40 @@ jobs:
           fi
           git commit -m "[skip ci] update movie watch state"
           git push
+
+      - name: Notify a persisted source halt
+        id: halt_notify
+        if: always() && steps.monitor.outcome == 'success' && steps.monitor.outputs.exit_code == '2' && steps.state_commit.outcome == 'success' && github.event.inputs.dry_run != 'true'
+        env:
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_RECEIVE_ID: ${{ secrets.FEISHU_RECEIVE_ID }}
+        run: |
+          git pull --rebase
+          set +e
+          python movie_watch.py --notify-persisted-halt
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Commit source-halt notification result
+        if: always() && steps.halt_notify.outcome == 'success'
+        run: |
+          if git diff --quiet -- state/movie_watch_state.json; then
+            echo "No source-halt notification state change; no commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/movie_watch_state.json
+          git commit -m "[skip ci] update movie watch state"
+          git push
+
+      - name: Propagate source-halt notification failure
+        if: always() && steps.halt_notify.outcome == 'success'
+        env:
+          EXIT_CODE: ${{ steps.halt_notify.outputs.exit_code }}
+        run: exit "${EXIT_CODE:-1}"
 
       - name: Propagate monitor failure
         if: always() && steps.monitor.outcome == 'success'
