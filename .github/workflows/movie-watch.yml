@@ -16,7 +16,7 @@ on:
         default: false
         type: boolean
       send_test_notification:
-        description: '只发送一条【电影监控测试】消息'
+        description: '仅发送一条电影机器人测试消息'
         required: false
         default: false
         type: boolean
@@ -30,6 +30,7 @@ concurrency:
 
 jobs:
   watch:
+    if: github.event_name == 'workflow_dispatch' || vars.MONITOR_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -63,27 +64,31 @@ jobs:
             echo "clear_source_halt=true requires dry_run=false"
             exit 1
           fi
-          if [[ "$TEST_MESSAGE" == "true" && ( "$DRY_RUN" == "true" || "$CLEAR_HALT" == "true" ) ]]; then
-            echo "send_test_notification=true requires dry_run=false and clear_source_halt=false"
+          if [[ "$TEST_MESSAGE" == "true" && "$CLEAR_HALT" == "true" ]]; then
+            echo "send_test_notification and clear_source_halt cannot both be true"
             exit 1
           fi
 
       - name: Run movie watch
         id: monitor
         env:
-          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
-          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
-          FEISHU_RECEIVE_ID: ${{ secrets.FEISHU_RECEIVE_ID }}
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
           IS_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
           DRY_RUN: ${{ inputs.dry_run || false }}
           CLEAR_HALT: ${{ inputs.clear_source_halt || false }}
           TEST_MESSAGE: ${{ inputs.send_test_notification || false }}
         run: |
           args=()
-          if [[ "$IS_MANUAL" == "true" && "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
-          if [[ "$IS_MANUAL" == "true" && "$CLEAR_HALT" == "true" ]]; then args+=(--clear-source-halt); fi
-          if [[ "$IS_MANUAL" == "true" && "$TEST_MESSAGE" == "true" ]]; then args+=(--test-notification); fi
-          if [[ "$DRY_RUN" != "true" && "$TEST_MESSAGE" != "true" ]]; then args+=(--defer-halt-notification); fi
+          if [[ "$IS_MANUAL" == "true" && "$TEST_MESSAGE" == "true" ]]; then
+            args+=(--test-notification)
+          elif [[ "$IS_MANUAL" == "true" && "$CLEAR_HALT" == "true" ]]; then
+            args+=(--clear-source-halt)
+          elif [[ "$IS_MANUAL" == "true" && "$DRY_RUN" == "true" ]]; then
+            args+=(--dry-run)
+          else
+            args+=(--defer-halt-notification)
+          fi
           set +e
           python movie_watch.py "${args[@]}"
           code=$?
@@ -92,7 +97,7 @@ jobs:
 
       - name: Commit material state change
         id: state_commit
-        if: always() && steps.monitor.outcome == 'success'
+        if: always() && steps.monitor.outcome == 'success' && github.event.inputs.dry_run != 'true' && github.event.inputs.send_test_notification != 'true'
         run: |
           if git diff --quiet -- state/movie_watch_state.json; then
             echo "No material state change; no commit."
@@ -116,9 +121,8 @@ jobs:
         id: halt_notify
         if: always() && steps.monitor.outcome == 'success' && steps.monitor.outputs.exit_code == '2' && steps.state_commit.outcome == 'success' && github.event.inputs.dry_run != 'true'
         env:
-          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
-          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
-          FEISHU_RECEIVE_ID: ${{ secrets.FEISHU_RECEIVE_ID }}
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
         run: |
           git pull --rebase
           set +e

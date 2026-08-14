@@ -1,12 +1,12 @@
 # MOViE MOViE《奥德赛》GitHub Actions 排片监控
 
-这是一个最小化的只读排片提醒程序：GitHub Actions 每 5 分钟请求一次固定影院的猫眼移动端影院详情接口，发现《奥德赛》首次、新增或恢复上架的未来场次后，通过飞书应用机器人发送一条合并提醒。它不会登录、选座、提交订单或支付。
+这是一个最小化的只读排片提醒程序：启用后，GitHub Actions 每 5 分钟请求一次固定影院的猫眼移动端影院详情接口，发现《奥德赛》首次、新增或恢复上架的未来场次后，通过飞书群自定义机器人 Webhook 发送一条合并提醒。它不会登录、选座、提交订单或支付。
 
 ## 数据源、许可与修改说明
 
 数据源访问和排片字段解析思路来自 `perbright/movie-movie` 项目。上游仓库标识的原作者/维护者账号为 `perbright`，原项目版权归其原作者所有。本仓库是为 GitHub Actions 长期定时任务制作的修改版本，保留原项目的 GPL-3.0 `LICENSE`；本说明不改变或替代上游版权声明。
 
-主要修改：取消影院模糊搜索与同轮重试；固定 `cinema_id` 并验证影院名称；按上海时区过滤全部未来场次；增加首次、新增、恢复上架识别、原子状态文件、三次通知上限、持久化停源保护、GitHub Actions 状态提交和飞书应用机器人私聊提醒。项目不保存完整接口响应。
+主要修改：取消影院模糊搜索与同轮重试；固定 `cinema_id` 并验证影院名称；按上海时区过滤全部未来场次；增加首次、新增、恢复上架识别、原子状态文件、三次通知上限、持久化停源保护、GitHub Actions 状态提交和带签名的飞书群自定义机器人 Webhook 提醒。项目不保存完整接口响应。
 
 上游项目：`https://gitee.com/perbright/movie-movie.git`
 
@@ -22,19 +22,20 @@
 
 > 发现新排片，可能已开放购票，请立即人工打开购票平台确认。
 
-## GitHub Secrets
+## GitHub Secrets 与正式开关
 
-现有上海房源机器人使用飞书应用消息接口，本项目沿用相同方式，但只从 GitHub Actions Secrets 读取：
+本项目只使用飞书群 V2 自定义机器人 Webhook，不使用飞书应用机器人、Open ID、tenant token 或消息 OpenAPI。以下两项只从 GitHub Actions Secrets 读取：
 
-- `FEISHU_APP_ID`
-- `FEISHU_APP_SECRET`
-- `FEISHU_RECEIVE_ID`（当前实现固定为已验证用户的 `open_id`）
+- `FEISHU_WEBHOOK`
+- `FEISHU_SECRET`
 
 请在公开仓库创建后，由仓库所有者手工进入：
 
 `GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret`
 
-逐项添加。不要把本地环境变量、`.env`、tenant token、Cookie、手机号或任何凭据提交到仓库，也不要在 issue、Actions 输入或聊天中粘贴凭据。
+逐项添加。Webhook 只允许 `https://open.feishu.cn/open-apis/bot/v2/hook/` 命名空间，程序按飞书规则使用 `FEISHU_SECRET` 生成 HMAC-SHA256 签名。不要把本地环境变量、`.env`、Webhook、Secret、Cookie、手机号或任何凭据提交到仓库，也不要在 issue、Actions 输入或聊天中粘贴凭据。
+
+仓库变量 `MONITOR_ENABLED` 是正式定时监控总开关。不存在或值不严格等于字符串 `true` 时，定时事件会直接跳过整个 job，不启动 runner、不访问猫眼。新仓库必须先保持为 `false`；测试消息成功后才能改为 `true`。
 
 ## 本地验证
 
@@ -53,9 +54,9 @@ py -3 movie_watch.py --dry-run
 
 - 默认 `dry_run=true`：只检查，不发消息、不改状态。
 - 人工清除停源：设置 `dry_run=false`、`clear_source_halt=true`。该次仅清除停止状态，不访问猫眼。
-- 测试飞书：设置 `dry_run=false`、`send_test_notification=true`，只发送一条带 `【电影监控测试】` 标识的消息，不访问猫眼、不改电影状态。
+- 测试飞书：勾选 `send_test_notification=true` 即可；该分支优先于默认的 `dry_run=true`，只发送一条带 `【电影监控测试】` 标识的消息，不访问猫眼、不改状态、不提交 Git。
 
-定时事件没有手动输入，默认执行正式监控。工作流通过固定 concurrency 组串行运行；状态仅在实质变化时提交，提交信息为 `[skip ci] update movie watch state`。
+定时事件只有在仓库变量 `MONITOR_ENABLED=true` 时才执行正式监控。工作流通过固定 concurrency 组串行运行；状态仅在实质变化时提交，提交信息为 `[skip ci] update movie watch state`。
 
 ## 停源边界
 

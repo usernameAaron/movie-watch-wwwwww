@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import json
+import argparse
+import base64
+import hashlib
+import hmac
+import os
 import tempfile
 import unittest
 from datetime import datetime
@@ -166,6 +171,7 @@ class MovieWatchTests(unittest.TestCase):
         self.assertEqual(recorder.messages, [])
         self.assertEqual(watch.notify_persisted_halt(self.state, current=NOW, notifier=recorder), 0)
         self.assertEqual(len(recorder.messages), 1)
+        self.assertIn("奥德赛", recorder.messages[0])
         self.assertTrue(watch.load_state(self.state)["halt_notification_attempted"])
 
     def test_10_halted_state_never_calls_fetcher(self) -> None:
@@ -219,7 +225,80 @@ class MovieWatchTests(unittest.TestCase):
         self.assertIn("group: movie-movie-odyssey-watch", text)
         self.assertIn("cancel-in-progress: false", text)
         self.assertIn("cron: '3/5 * * * *'", text)
+        self.assertIn("if: github.event_name == 'workflow_dispatch' || vars.MONITOR_ENABLED == 'true'", text)
+        self.assertIn("github.event.inputs.send_test_notification != 'true'", text)
         self.assertLess(text.index("Commit material state change"), text.index("Notify a persisted source halt"))
+
+    def test_15_signed_v2_webhook_requires_explicit_success(self) -> None:
+        timestamp = "1723560000"
+        secret = "offline-test-signing-secret"
+        expected = base64.b64encode(hmac.new(
+            f"{timestamp}\n{secret}".encode("utf-8"), digestmod=hashlib.sha256
+        ).digest()).decode("ascii")
+        self.assertEqual(watch.feishu_signature(timestamp, secret), expected)
+
+        response = Mock(status_code=200)
+        response.json.return_value = {"code": 0, "msg": "success"}
+        stats = {"webhook": 0}
+        webhook = watch.FEISHU_WEBHOOK_PREFIX + "offline-test-hook-id"
+        with patch.dict(os.environ, {"FEISHU_WEBHOOK": webhook, "FEISHU_SECRET": secret}, clear=True), \
+             patch("movie_watch.time.time", return_value=int(timestamp)), \
+             patch("movie_watch.requests.post", return_value=response) as post:
+            watch.send_feishu("奥德赛离线测试", stats)
+        self.assertEqual(stats["webhook"], 1)
+        self.assertEqual(post.call_count, 1)
+        args, kwargs = post.call_args
+        self.assertEqual(args[0], webhook)
+        self.assertEqual(kwargs["json"]["sign"], expected)
+        self.assertEqual(kwargs["json"]["msg_type"], "text")
+        self.assertIn("奥德赛", kwargs["json"]["content"]["text"])
+        self.assertIs(kwargs["allow_redirects"], False)
+
+        bad_response = Mock(status_code=200)
+        bad_response.json.return_value = {"code": 1, "msg": "rejected"}
+        with patch.dict(os.environ, {"FEISHU_WEBHOOK": webhook, "FEISHU_SECRET": secret}, clear=True), \
+             patch("movie_watch.requests.post", return_value=bad_response):
+            with self.assertRaises(watch.NotificationError):
+                watch.send_feishu("奥德赛离线失败测试", {"webhook": 0})
+
+    def test_16_webhook_allowlist_and_test_entry_do_not_touch_source_or_state(self) -> None:
+        for invalid in (
+            "http://open.feishu.cn/open-apis/bot/v2/hook/example",
+            "https://evil.example/open-apis/bot/v2/hook/example",
+            "https://open.feishu.cn/open-apis/im/v1/messages",
+            "https://open.feishu.cn/open-apis/bot/v2/hook/example?leak=1",
+        ):
+            with self.assertRaises(watch.NotificationError):
+                watch.validate_feishu_webhook(invalid)
+
+        watch.atomic_save_json(self.state, watch.load_state(self.state))
+        before = self.state.read_bytes()
+        recorder = Recorder()
+        namespace = argparse.Namespace(
+            config=self.config,
+            state=self.state,
+            dry_run=False,
+            clear_source_halt=False,
+            test_notification=True,
+            defer_halt_notification=False,
+            notify_persisted_halt=False,
+        )
+        with patch("movie_watch.parse_args", return_value=namespace), \
+             patch("movie_watch.send_test_notification", return_value=0) as test_send, \
+             patch("movie_watch.run_monitor", side_effect=AssertionError("must not fetch")) as monitor:
+            self.assertEqual(watch.main(), 0)
+        test_send.assert_called_once_with()
+        monitor.assert_not_called()
+        self.assertEqual(self.state.read_bytes(), before)
+
+        self.assertEqual(watch.send_test_notification(notifier=recorder), 0)
+        self.assertEqual(len(recorder.messages), 1)
+        self.assertEqual(recorder.messages[0], (
+            "【电影监控测试】\n\n"
+            "奥德赛放票提醒机器人连接成功。\n"
+            "监控影院：MOViE MOViE 影城（前滩太古里店）\n"
+            "当前仅为测试消息，尚未代表发现新增排片。"
+        ))
 
 
 if __name__ == "__main__":

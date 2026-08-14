@@ -3,21 +3,25 @@
 
 Based on the data-source approach in perbright/movie-movie (GPL-3.0).
 This modified version adds persistent incremental state, strict source-halting,
-and Feishu application-bot notifications suitable for GitHub Actions.
+and signed Feishu V2 custom-bot Webhook notifications for GitHub Actions.
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
 import copy
 import hashlib
+import hmac
 import json
 import os
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 import requests
@@ -40,8 +44,7 @@ DEFAULT_STATE = {
     "source_halt_reason": None,
     "source_halted_at": None,
     "halt_notification_attempted": False,
-    "feishu_token_api_calls": 0,
-    "feishu_message_api_calls": 0,
+    "feishu_webhook_calls": 0,
 }
 
 
@@ -244,43 +247,62 @@ def build_schedule_message(cinema_name: str, movie_name: str, items: list[dict[s
     return "\n".join(lines)
 
 
+FEISHU_WEBHOOK_PREFIX = "https://open.feishu.cn/open-apis/bot/v2/hook/"
+
+
+def feishu_signature(timestamp: str, secret: str) -> str:
+    """Return the signature required by a Feishu V2 custom bot."""
+    string_to_sign = f"{timestamp}\n{secret}".encode("utf-8")
+    digest = hmac.new(string_to_sign, digestmod=hashlib.sha256).digest()
+    return base64.b64encode(digest).decode("ascii")
+
+
+def validate_feishu_webhook(webhook: str) -> None:
+    """Accept only the official Feishu V2 custom-bot webhook namespace."""
+    parsed = urlsplit(webhook)
+    suffix = parsed.path.removeprefix("/open-apis/bot/v2/hook/")
+    if (
+        not webhook.startswith(FEISHU_WEBHOOK_PREFIX)
+        or parsed.scheme != "https"
+        or parsed.hostname != "open.feishu.cn"
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port is not None
+        or parsed.query
+        or parsed.fragment
+        or not suffix
+        or "/" in suffix
+        or not suffix.isascii()
+        or not all(char.isalnum() or char in "-_" for char in suffix)
+    ):
+        raise NotificationError("飞书 Webhook 地址不符合允许范围")
+
+
 def send_feishu(message: str, stats: dict[str, int] | None = None) -> None:
-    """Send one application-bot P2P text message; never print credentials."""
-    stats = stats if stats is not None else {"token": 0, "message": 0}
-    app_id = os.environ.get("FEISHU_APP_ID", "").strip()
-    app_secret = os.environ.get("FEISHU_APP_SECRET", "").strip()
-    receive_id = os.environ.get("FEISHU_RECEIVE_ID", "").strip()
-    if not (app_id and app_secret and receive_id):
-        raise NotificationError("飞书 GitHub Secrets 未完整配置")
+    """Send one signed V2 custom-bot webhook request; never expose secrets."""
+    stats = stats if stats is not None else {"webhook": 0}
+    webhook = os.environ.get("FEISHU_WEBHOOK", "").strip()
+    secret = os.environ.get("FEISHU_SECRET", "").strip()
+    if not webhook or not secret:
+        raise NotificationError("飞书 Webhook GitHub Secrets 未完整配置")
+    validate_feishu_webhook(webhook)
+    timestamp = str(int(time.time()))
+    payload = {
+        "timestamp": timestamp,
+        "sign": feishu_signature(timestamp, secret),
+        "msg_type": "text",
+        "content": {"text": message},
+    }
     try:
-        stats["token"] += 1
-        token_response = requests.post(
-            "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
-            json={"app_id": app_id, "app_secret": app_secret},
-            timeout=15,
-        )
-        token_data = token_response.json()
-        if token_response.status_code != 200 or token_data.get("code") != 0:
-            raise NotificationError("飞书鉴权明确失败")
-        token = str(token_data.get("tenant_access_token", "")).strip()
-        if not token:
-            raise NotificationError("飞书鉴权响应缺少令牌")
-        stats["message"] += 1
-        message_response = requests.post(
-            "https://open.feishu.cn/open-apis/im/v1/messages",
-            params={"receive_id_type": "open_id"},
-            headers={"Authorization": f"Bearer {token}"},
-            json={"receive_id": receive_id, "msg_type": "text", "content": json.dumps({"text": message}, ensure_ascii=False)},
-            timeout=15,
-        )
-        message_data = message_response.json()
-        message_id = str(((message_data.get("data") or {}).get("message_id") or "")).strip()
-        if message_response.status_code != 200 or message_data.get("code") != 0 or not message_id:
-            raise NotificationError("飞书消息接口明确失败")
-    except NotificationError:
-        raise
+        stats["webhook"] += 1
+        response = requests.post(webhook, json=payload, timeout=15, allow_redirects=False)
+        data = response.json()
     except (requests.RequestException, ValueError) as exc:
-        raise NotificationError("飞书请求失败或返回格式异常") from exc
+        raise NotificationError("飞书 Webhook 请求失败或返回格式异常") from exc
+    if response.status_code != 200 or not isinstance(data, dict):
+        raise NotificationError("飞书 Webhook 明确失败")
+    if not (data.get("code") == 0 or data.get("StatusCode") == 0):
+        raise NotificationError("飞书 Webhook 明确失败")
 
 
 def _save_if_changed(path: Path, before: dict[str, Any], after: dict[str, Any], dry_run: bool) -> bool:
@@ -299,10 +321,10 @@ def _mark_halted(
     if state.get("halt_notification_attempted"):
         return
     state["halt_notification_attempted"] = True
-    stats = {"token": 0, "message": 0}
+    stats = {"webhook": 0}
     try:
         notifier(
-            "【电影监控来源已停止，需要人工处理】\n"
+            "【奥德赛电影监控来源已停止，需要人工处理】\n"
             f"停止原因：{reason}\n检测时间：{current.strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
             "程序不会继续访问数据源；请人工检查后通过 clear_source_halt=true 清除停止状态。",
             stats,
@@ -312,8 +334,7 @@ def _mark_halted(
         state["halt_notification_result"] = "failed"
         state["halt_notification_error"] = str(exc)
     finally:
-        state["feishu_token_api_calls"] += stats["token"]
-        state["feishu_message_api_calls"] += stats["message"]
+        state["feishu_webhook_calls"] += stats["webhook"]
 
 
 def _queue_changes(state: dict[str, Any], result: FetchResult) -> tuple[list[dict[str, str]], bool]:
@@ -381,7 +402,7 @@ def _attempt_pending(
         return "exhausted", False
 
     state["notification_attempts"][event_id] = attempts + 1
-    stats = {"token": 0, "message": 0}
+    stats = {"webhook": 0}
     try:
         notifier(message, stats)
     except NotificationError as exc:
@@ -390,8 +411,7 @@ def _attempt_pending(
             state["notification_events"][event_id]["status"] = "exhausted"
         return "failed", True
     finally:
-        state["feishu_token_api_calls"] += stats["token"]
-        state["feishu_message_api_calls"] += stats["message"]
+        state["feishu_webhook_calls"] += stats["webhook"]
 
     notified = set(state.get("successfully_notified_fingerprints") or [])
     notified.update(item["fingerprint"] for item in event["items"])
@@ -493,17 +513,19 @@ def run_monitor(
 
 
 def send_test_notification(notifier: Callable[..., None] = send_feishu) -> int:
-    stats = {"token": 0, "message": 0}
+    stats = {"webhook": 0}
     try:
         notifier(
-            "【电影监控测试】\nMOViE MOViE《奥德赛》GitHub Actions 飞书提醒通道测试。\n"
-            "本消息仅用于连通性验证，不代表当前存在新增排片。",
+            "【电影监控测试】\n\n"
+            "奥德赛放票提醒机器人连接成功。\n"
+            "监控影院：MOViE MOViE 影城（前滩太古里店）\n"
+            "当前仅为测试消息，尚未代表发现新增排片。",
             stats,
         )
     except NotificationError as exc:
         print(f"电影监控测试消息发送失败：{exc}")
         return 1
-    print(f"电影监控测试消息发送成功；Token接口调用次数={stats['token']}；消息接口调用次数={stats['message']}")
+    print(f"电影监控测试消息发送成功；Webhook调用次数={stats['webhook']}")
     return 0
 
 
