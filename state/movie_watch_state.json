@@ -2,7 +2,6 @@
   "current_fingerprints": [
     "seq:202608150022725",
     "seq:202608150022726",
-    "seq:202608150022727",
     "seq:202608150191830",
     "seq:202608160017433",
     "seq:202608160017434",
@@ -45,6 +44,7 @@
     "seq:202608140146982",
     "seq:202608140461103",
     "seq:202608150010045",
+    "seq:202608150022727",
     "seq:202608150022728",
     "seq:202608150189925"
   ],
@@ -594,7 +594,7 @@
   "halt_notification_attempted": false,
   "initialized": true,
   "last_notification": "2026-08-14T17:16:25+08:00",
-  "last_successful_check": "2026-08-15T13:25:36+08:00",
+  "last_successful_check": "2026-08-15T16:47:50+08:00",
   "notification_attempts": {
     "1bcee7b38ab5ecba8931e0d7": 1,
     "512fc29a6fc035178f8e868c": 1,
