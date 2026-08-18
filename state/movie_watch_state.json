@@ -18,7 +18,17 @@
     "seq:202608210044013",
     "seq:202608210044014",
     "seq:202608210044015",
-    "seq:202608210044016"
+    "seq:202608210044016",
+    "seq:202608220053330",
+    "seq:202608220053331",
+    "seq:202608220053332",
+    "seq:202608220053333",
+    "seq:202608220053334",
+    "seq:202608230032125",
+    "seq:202608230032126",
+    "seq:202608230032127",
+    "seq:202608230032128",
+    "seq:202608230032129"
   ],
   "disappeared_fingerprints": [
     "seq:202608140026035",
@@ -653,17 +663,138 @@
       "movie_name": "奥德赛",
       "seq": "202608210044016",
       "time": "09:45"
+    },
+    "seq:202608220053330": {
+      "cinema_id": "37534",
+      "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+      "date": "2026-08-22",
+      "fingerprint": "seq:202608220053330",
+      "format": "IMAX2D",
+      "hall": "IMAX 激光厅",
+      "language": "英语",
+      "movie_name": "奥德赛",
+      "seq": "202608220053330",
+      "time": "22:55"
+    },
+    "seq:202608220053331": {
+      "cinema_id": "37534",
+      "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+      "date": "2026-08-22",
+      "fingerprint": "seq:202608220053331",
+      "format": "IMAX2D",
+      "hall": "IMAX 激光厅",
+      "language": "英语",
+      "movie_name": "奥德赛",
+      "seq": "202608220053331",
+      "time": "19:40"
+    },
+    "seq:202608220053332": {
+      "cinema_id": "37534",
+      "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+      "date": "2026-08-22",
+      "fingerprint": "seq:202608220053332",
+      "format": "IMAX2D",
+      "hall": "IMAX 激光厅",
+      "language": "英语",
+      "movie_name": "奥德赛",
+      "seq": "202608220053332",
+      "time": "09:45"
+    },
+    "seq:202608220053333": {
+      "cinema_id": "37534",
+      "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+      "date": "2026-08-22",
+      "fingerprint": "seq:202608220053333",
+      "format": "IMAX2D",
+      "hall": "IMAX 激光厅",
+      "language": "英语",
+      "movie_name": "奥德赛",
+      "seq": "202608220053333",
+      "time": "13:00"
+    },
+    "seq:202608220053334": {
+      "cinema_id": "37534",
+      "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+      "date": "2026-08-22",
+      "fingerprint": "seq:202608220053334",
+      "format": "IMAX2D",
+      "hall": "IMAX 激光厅",
+      "language": "英语",
+      "movie_name": "奥德赛",
+      "seq": "202608220053334",
+      "time": "16:20"
+    },
+    "seq:202608230032125": {
+      "cinema_id": "37534",
+      "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+      "date": "2026-08-23",
+      "fingerprint": "seq:202608230032125",
+      "format": "IMAX2D",
+      "hall": "IMAX 激光厅",
+      "language": "英语",
+      "movie_name": "奥德赛",
+      "seq": "202608230032125",
+      "time": "22:45"
+    },
+    "seq:202608230032126": {
+      "cinema_id": "37534",
+      "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+      "date": "2026-08-23",
+      "fingerprint": "seq:202608230032126",
+      "format": "IMAX2D",
+      "hall": "IMAX 激光厅",
+      "language": "英语",
+      "movie_name": "奥德赛",
+      "seq": "202608230032126",
+      "time": "09:45"
+    },
+    "seq:202608230032127": {
+      "cinema_id": "37534",
+      "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+      "date": "2026-08-23",
+      "fingerprint": "seq:202608230032127",
+      "format": "IMAX2D",
+      "hall": "IMAX 激光厅",
+      "language": "英语",
+      "movie_name": "奥德赛",
+      "seq": "202608230032127",
+      "time": "13:00"
+    },
+    "seq:202608230032128": {
+      "cinema_id": "37534",
+      "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+      "date": "2026-08-23",
+      "fingerprint": "seq:202608230032128",
+      "format": "IMAX2D",
+      "hall": "IMAX 激光厅",
+      "language": "英语",
+      "movie_name": "奥德赛",
+      "seq": "202608230032128",
+      "time": "19:30"
+    },
+    "seq:202608230032129": {
+      "cinema_id": "37534",
+      "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+      "date": "2026-08-23",
+      "fingerprint": "seq:202608230032129",
+      "format": "IMAX2D",
+      "hall": "IMAX 激光厅",
+      "language": "英语",
+      "movie_name": "奥德赛",
+      "seq": "202608230032129",
+      "time": "16:15"
     }
   },
   "feishu_webhook_calls": 6,
   "halt_notification_attempted": false,
   "initialized": true,
   "last_notification": "2026-08-14T17:16:25+08:00",
-  "last_successful_check": "2026-08-18T14:16:25+08:00",
+  "last_successful_check": "2026-08-18T15:07:11+08:00",
   "notification_attempts": {
     "1bcee7b38ab5ecba8931e0d7": 1,
     "512fc29a6fc035178f8e868c": 1,
     "5b78fbe1b3debd65254298dd": 1,
+    "62313b564d70858eca0f0c23": 0,
     "d59a9b3a9fd7734ca5fdc337": 3
   },
   "notification_events": {
@@ -678,6 +809,10 @@
     "5b78fbe1b3debd65254298dd": {
       "last_error": null,
       "status": "success"
+    },
+    "62313b564d70858eca0f0c23": {
+      "last_error": null,
+      "status": "pending"
     },
     "d59a9b3a9fd7734ca5fdc337": {
       "last_error": "飞书 Webhook 明确失败",
@@ -752,6 +887,141 @@
           "movie_name": "奥德赛",
           "seq": "202608210044016",
           "time": "09:45"
+        }
+      ]
+    },
+    {
+      "event_id": "62313b564d70858eca0f0c23",
+      "items": [
+        {
+          "cinema_id": "37534",
+          "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+          "date": "2026-08-22",
+          "fingerprint": "seq:202608220053330",
+          "format": "IMAX2D",
+          "hall": "IMAX 激光厅",
+          "kind": "new",
+          "language": "英语",
+          "movie_name": "奥德赛",
+          "seq": "202608220053330",
+          "time": "22:55"
+        },
+        {
+          "cinema_id": "37534",
+          "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+          "date": "2026-08-22",
+          "fingerprint": "seq:202608220053331",
+          "format": "IMAX2D",
+          "hall": "IMAX 激光厅",
+          "kind": "new",
+          "language": "英语",
+          "movie_name": "奥德赛",
+          "seq": "202608220053331",
+          "time": "19:40"
+        },
+        {
+          "cinema_id": "37534",
+          "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+          "date": "2026-08-22",
+          "fingerprint": "seq:202608220053332",
+          "format": "IMAX2D",
+          "hall": "IMAX 激光厅",
+          "kind": "new",
+          "language": "英语",
+          "movie_name": "奥德赛",
+          "seq": "202608220053332",
+          "time": "09:45"
+        },
+        {
+          "cinema_id": "37534",
+          "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+          "date": "2026-08-22",
+          "fingerprint": "seq:202608220053333",
+          "format": "IMAX2D",
+          "hall": "IMAX 激光厅",
+          "kind": "new",
+          "language": "英语",
+          "movie_name": "奥德赛",
+          "seq": "202608220053333",
+          "time": "13:00"
+        },
+        {
+          "cinema_id": "37534",
+          "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+          "date": "2026-08-22",
+          "fingerprint": "seq:202608220053334",
+          "format": "IMAX2D",
+          "hall": "IMAX 激光厅",
+          "kind": "new",
+          "language": "英语",
+          "movie_name": "奥德赛",
+          "seq": "202608220053334",
+          "time": "16:20"
+        },
+        {
+          "cinema_id": "37534",
+          "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+          "date": "2026-08-23",
+          "fingerprint": "seq:202608230032125",
+          "format": "IMAX2D",
+          "hall": "IMAX 激光厅",
+          "kind": "new",
+          "language": "英语",
+          "movie_name": "奥德赛",
+          "seq": "202608230032125",
+          "time": "22:45"
+        },
+        {
+          "cinema_id": "37534",
+          "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+          "date": "2026-08-23",
+          "fingerprint": "seq:202608230032126",
+          "format": "IMAX2D",
+          "hall": "IMAX 激光厅",
+          "kind": "new",
+          "language": "英语",
+          "movie_name": "奥德赛",
+          "seq": "202608230032126",
+          "time": "09:45"
+        },
+        {
+          "cinema_id": "37534",
+          "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+          "date": "2026-08-23",
+          "fingerprint": "seq:202608230032127",
+          "format": "IMAX2D",
+          "hall": "IMAX 激光厅",
+          "kind": "new",
+          "language": "英语",
+          "movie_name": "奥德赛",
+          "seq": "202608230032127",
+          "time": "13:00"
+        },
+        {
+          "cinema_id": "37534",
+          "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+          "date": "2026-08-23",
+          "fingerprint": "seq:202608230032128",
+          "format": "IMAX2D",
+          "hall": "IMAX 激光厅",
+          "kind": "new",
+          "language": "英语",
+          "movie_name": "奥德赛",
+          "seq": "202608230032128",
+          "time": "19:30"
+        },
+        {
+          "cinema_id": "37534",
+          "cinema_name": "MOViE MOViE 影城（前滩太古里店）",
+          "date": "2026-08-23",
+          "fingerprint": "seq:202608230032129",
+          "format": "IMAX2D",
+          "hall": "IMAX 激光厅",
+          "kind": "new",
+          "language": "英语",
+          "movie_name": "奥德赛",
+          "seq": "202608230032129",
+          "time": "16:15"
         }
       ]
     }
